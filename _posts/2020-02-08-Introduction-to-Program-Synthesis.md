@@ -22,7 +22,7 @@ program synthesis는 프로그램 자동 생성 기법 중 하나로써 여러 �
 ##### 프로그램 공간
  합성 결과물이 될 수 있는 프로그램들의 후보들을 말한다.
 
-![program_space](../_images/program_tree.JPG)
+![program_tree](https://user-images.githubusercontent.com/24788751/86518342-300b1700-be6c-11ea-8813-3780fdaacc6e.JPG)
 
 ##### DSL (Domain Specific Language)
 합성을 위해서는 굳이 코드의 상세한 내용을 알 필요가 없다. 따라서 좀 더 우리가 원하는 방향으로 프로그램을 표현하기 위한 언어를 새로 만든다. ~~DSL을 좀 더 잘 표현해주기 위한 설명이 기억나지 않는다.~~
@@ -74,6 +74,8 @@ biological evolution에 영감을 받았다.
 
  - 추가로 사용자의 의도가 원하는 프로그램의 범위를 제대로 포함하지 못한다면 그에 따른 정확도는 감소할 것이다.
 
+## Reference
+[1] Gulwani, Sumit, Oleksandr Polozov, and Rishabh Singh. "Program synthesis." Foundations and Trends® in Programming Languages 4.1-2 (2017): 1-119.
 
 <!-- 
 3. Dimensions in Program Synthesis

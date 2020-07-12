@@ -5,7 +5,7 @@ categories: Research
 ---
 # Fault Localization: 결함위치식별
 
-Fault Localization (결함위치식별)은 소스코드 내에 존재하는 오류의 위치를 찾아내는 기법으로, spectrum, slice, statistical, machine learning 등 다양한 방법들이 적용되어 연구되고 있다.
+Fault Localization (결함위치식별)은 소스코드 내에 존재하는 오류의 위치를 찾아내는 기법으로, spectrum, slice, statistical, machine learning, SMT 등 다양한 방법들이 적용되어 연구되고 있다.
 
 그 중 coverage 기반의 결함위치식별 기법은 주어진 테스트케이스를 실행하여 결함이 발생하기 까지 실행되는 부분(cover)을 확인하고, 이를 'suspiciouness', '의심도'라는 확률 값으로 나타내어 의심도 값이 높은 코드를 결함 코드라고 추정하는 기법이다. 커버리지 기반의 결함위치식별 기법을 적용한 모델로는 Tarantula가 대표적이다.
 
