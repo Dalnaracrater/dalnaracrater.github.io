@@ -64,18 +64,22 @@ biological evolution에 영감을 받았다.
 ## Challenges
 주요 문제점 : Program space의 intractability, diversity of user intent.   
 
-#### program space
+### program space
  Moore’s law와 constraint solving의 발전으로 program space를 합리적인 시간 안에 큰 규모의 공간을 탐색할 수 있게 되었다. 그러나 현대의 program synthesis 기술은 작은 코드 밖에 생성해내지 못하는 단점을 갖고 있어 실제 산업에서 적용되는 경우는 적다.
 
-#### User Intent
+### User Intent
 두번째 과제는 사용자의 의도를 정확히 표현하는 것이다. 사용자 의도를 표현하는 방법에 있어서는 formal specification부터 informal nature-language description, input-output 예제까지 다양하게 존재한다.
 
  프로그램 합성에 대한 실제 application domain은 formal 또는 informal specification으로 표현하기에는 꽤 복잡하다. 그래서 이런 specification이 생성된 프로그램에 비해 너무 구체적이거나, 사용자가 모든 범위를 생각하지 않는 경우가 많은 등의 어려움이 존재한다. 이러한 경우 프로그램 합성을 큰 산업에 적용하는 것을 human-computer interaction(HCI)로도 생각해 볼 수 있다.
 
  - 추가로 사용자의 의도가 원하는 프로그램의 범위를 제대로 포함하지 못한다면 그에 따른 정확도는 감소할 것이다.
 
+### Scalability
+프로그램 탐색에 대한 가지치기를 진행한다 하더라도 정수, 실수와 같은 수를 찾아내야할 경우 이에 대한 경우의 수가 무한하다. 또한 어떠한 한 구문을 생략할 수 있는 경우, 구문이 생략된 프로그램과 그렇지 않은 프로그램들이 존재하기 때문에 이 프로그램들이 가지치기 대상이 되어야하는지 확신하기 힘들다.
+
 ## Reference
 [1] Gulwani, Sumit, Oleksandr Polozov, and Rishabh Singh. "Program synthesis." Foundations and Trends® in Programming Languages 4.1-2 (2017): 1-119.
+[2] Armando. "Introduction to Program Synthesis." 1-3. "https://people.csail.mit.edu/asolar/SynthesisCourse/Lecture3.htm"
 
 <!-- 
 3. Dimensions in Program Synthesis
