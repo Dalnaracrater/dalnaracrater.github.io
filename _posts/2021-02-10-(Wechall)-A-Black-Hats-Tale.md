@@ -4,8 +4,6 @@ date: 2021-02-10 05:24:00 -0400
 categories: Security
 ---
 
-# (Wechall) A Black Hats Tale
-
 ## 문제 풀이
 War driving을 통해 은행 본사의 무선 통신을 스니핑하여 통신 데이터 일부를 얻었다 (wpa_psk.cap). 은행은 WPA를 통해 통신을 암호화 하고 있어 스니핑된 데이터는 암호화되어 있다. 따라서 WPA의 키를 알아야 평문을 얻을 수 있다.
 
@@ -30,7 +28,7 @@ Wired Equivalent Privacy는 IV(Initial Vector)와 사전에 공유된 키를 통
 - 암호화 알고리즘으로 RC4를 사용하고 있어 자체적으로 취약함
 
 ### WPA
-WPA는 WEP을 대체하기 위해 TKIP(Temporal Key Integrity Protocol)을 사용한다. TKIP는 RC4를 사용하긴 하지만 **48비트의 확장된 IV 사용, IV의 순차적 증가를 통한 재생 공격 보호**, CRC-32보다 안전한 MIC(Message Integrity Check) 사용하여 위 목적을 실현하려고 하였다.
+WPA는 WEP을 대체하기 위해 TKIP(Temporal Key Integrity Protocol)을 사용한다. TKIP는 RC4를 사용하긴 하지만 **48비트의 확장된 IV 사용, IV의 순차적 증가를 통한 재생 공격 보호**, CRC-32보다 안전한 **MIC(Message Integrity Check) 알고리즘** 사용을 통해 위 목적을 실현하려고 하였다.
 
 #### 단점
 - RC4의 취약점이 그대로 남겨짐
