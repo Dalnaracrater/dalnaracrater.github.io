@@ -1,7 +1,7 @@
 ---
 title: "angr installation"
 date: 2019-12-28 05:24:00 -0400
-categories: angr
+categories: programming
 ---
 angr is a powerful analysis tool.
 you can download it by using this command.
