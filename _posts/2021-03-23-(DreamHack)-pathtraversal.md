@@ -1,6 +1,6 @@
 ---
 title: "(DreamHack) pathtraversal"
-date: 2021-03-21 05:24:00 -0400
+date: 2021-03-23 05:24:00 -0400
 categories: Security CTF
 ---
 
