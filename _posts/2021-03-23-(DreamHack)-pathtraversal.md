@@ -8,7 +8,7 @@ Path traversal은 URL의 경로를 임의로 조작하여 의도하지 않는 ap
 
 주어진 소스코드를 살펴보면 사용자 입력으로 userid를 받아 {API_HOST}/api/user/{userid}의 경로로 POST 요청을 보내는 것을 알 수 있습니다.
 
-``` Python
+``` python
 @app.route('/get_info', methods=['GET', 'POST'])
 def get_info():
     if request.method == 'GET':
@@ -21,7 +21,7 @@ def get_info():
 
 Path traversal 취약점을 통해 flag.txt 값이 저장된 FLAG 변수를 반환하는 /api/flag가 호출될 수 있도록 '../flag'를 기존 url에 추가해주기로 합니다.
 
-``` Python
+``` python
 
 try:
     FLAG = open('./flag.txt', 'r').read() # Flag is here!!
@@ -36,7 +36,7 @@ def flag():
 
 사실 주어진 입력란에 ../flag를 입력하여도 일시적으로 undefined라고 표시된 뒤 아무런 변화가 없다. 이는 자바스크립트 코드에서 users 변수가 'guest'는 0, 'admin'은 1로 고정되어 있기 때문이다.
 
-``` Javascript
+``` javascript
 <script>
   const users = {
     'guest': 0,

@@ -13,7 +13,7 @@ flag라는 페이지에 위와 같이 입력을 할 수 있는 폼이 있었다.
 그렇게 되면 memo_text가 전역변수로 사용되어 있기 때문에 해당 변수에 FLAG 값을 저장한 뒤 memo 페이지를 호출하면 memo_text 값이 메모 페이지에 출력된다.
 
 
-```Python
+```python
 @app.route('/flag', methods=['GET', 'POST'])
 def flag():
     if request.method == 'GET':
@@ -44,7 +44,7 @@ def read_url(url, cookie={'name': 'name', 'value': 'value'}):
     return True
 ```
 
-```Python
+```python
 @app.route('/admin/notice_flag')
 def admin_notice_flag():
     global memo_text

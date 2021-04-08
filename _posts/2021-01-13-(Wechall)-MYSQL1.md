@@ -14,7 +14,7 @@ categories: Security
 위 값을 입력하여 admin 계정으로 시스템에 로그인을 시도했다.
 admin은 관리자 계정, '는 username 값이 끝났음을 명시한다. 주석처리#을 통해서 이후 오는 조건절을 무시하도록 한다.
 
-```Java
+```java
 /**
  * Exploit this!
  * @param WC_Challenge $chall

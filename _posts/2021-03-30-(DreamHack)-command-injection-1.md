@@ -8,7 +8,7 @@ command injection은 말 그대로 명령어를 주입하여 해당 명령어를
 
 ping 페이지에는 다음과 같이 host 주소를 입력하는 폼이 있으며, 소스코드에는 host에 3번 icmp 패킷을 전송하도록 되어있다.
 
-```Python
+``` python
 @APP.route('/ping', methods=['GET', 'POST'])
 def ping():
     if request.method == 'POST':

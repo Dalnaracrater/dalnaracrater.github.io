@@ -10,7 +10,7 @@ Regex 정규표현식 문법을 이용하여 empty string을 매칭하는 정규
 
 
 답
-```Java
+```java
 /^$/
 ```
 출처: http://www.wechall.net/challenge/training/regex/index.php
@@ -27,7 +27,7 @@ Regex 정규표현식 문법을 이용하여 empty string을 매칭하는 정규
 
  이번 문제에서는 아스키 코드를 사용할 수 있도록 하여 키의 크기가 26에서 128로 늘어났다는 점에 주의한다.
 
-```Python
+```python
 ciphertext = "63 0B 0B 00 20 06 0B 7E 48 20 15 0B 11 20 0F 0B\
  08 12 01 00 20 0B 0A 01 20 09 0B 0E 01 20 7F 04\
  7D 08 08 01 0A 03 01 20 05 0A 20 15 0B 11 0E 20\
@@ -65,7 +65,7 @@ Goodjob,yousolvedonemorechallengeinyourjourney.Thisonewasfairlyeas
 
 'oWdnreuf'에서 암호화 키가 [2, 1]임을 유추할 수 있다.
 
-```Python
+```python
 cipher = "oWdnreuf.lY uoc nar ae dht eemssga eaw yebttrew eh nht eelttre srax enic roertco drre.Ihtni koy uowlu dilekt oes eoyrup sawsro don: wc lfoediorbp.e"
 keysize = 2
 key = [2, 1]
@@ -86,14 +86,14 @@ LFI 취약점은 공격 대상 서버에 있는 파일을 포함시켜 공격한
 cf. RFI (Remote File Inclusion)
 
 filename에 대한 검증 없이 include를 해 취약점 발생
-```PHP
+```php
 $filename = 'pages/'.(isset($_GET["file"])?$_GET["file"]:"welcome").'.html';
 include $filename;
 ```
 
 
 ?file=../../solution.php 를 통해 해당 파일을 불러오고 %00을 통해 끝에 .html이 붙지 않도록 한다. (Null byte injection)
-```PHP
+```php
 https://www.wechall.net/challenge/training/php/lfi/up/index.php?file=../../solution.php%00
 ```
 

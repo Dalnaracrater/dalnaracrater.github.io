@@ -11,7 +11,7 @@ SSTI (Server Side Template Injection) 취약점은 동적으로 생성되는 웹
 
 flag.txt에 저장된 값은 FLAG와 app.secret_key에 저장된다. 그러나 FLAG는 전역변수가 아니기 때문에 Error404 메소드에서 사용할 수 없다. 
 
-```Python
+```python
 try:
     FLAG = open('./flag.txt', 'r').read()
 except:
@@ -22,7 +22,7 @@ app.secret_key = FLAG
 
 그러나 flask는 Flask 객체의 config 속성에 애플리케이션의 실행 환경에 대한 설정 값을 저장한다. 그렇기 때문에 FLAG 값 또한 config에 설정이 되어 있다.
 
-```Python
+```python
 @app.errorhandler(404)
 def Error404(e):
     template = '''

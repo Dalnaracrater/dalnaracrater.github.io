@@ -17,7 +17,7 @@ Password: 1234
 
 Username에 입력된 값을 통해 기존 쿼리문의 데이터는 아무 것도 없고, 이후의 서브 쿼리를 통해 1, 'admin', md5(1234)를 레코드로 갖는 테이블이 생성된다.
 
-```Java
+```java
 /**
  * Exploit this! It is the same as MySQL-I, but with an additional check, marked with ###
  * @param WC_Challenge $chall

@@ -10,7 +10,7 @@ categories: Security CTF
 
 ![image](https://user-images.githubusercontent.com/24788751/112131875-5c8add00-8c0d-11eb-9387-e557305bd1ea.png)
 
-``` Python
+``` python
 @APP.route('/upload', methods=['GET', 'POST'])
 def upload_memo():
     if request.method == 'POST':
@@ -30,7 +30,7 @@ def upload_memo():
 
 /read에서는 별다른 사용자 입력 없이 name의 값을 filename으로 읽어들여 해당 파일의 데이터를 읽어들이는 것을 확인할 수 있다.
 
-``` Python
+``` python
 UPLOAD_DIR = 'uploads'
 
 @APP.route('/read')

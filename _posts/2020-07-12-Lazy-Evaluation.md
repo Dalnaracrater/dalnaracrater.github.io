@@ -5,7 +5,7 @@ categories: Research
 ---
 # Lazy Evaluation: 지연 계산법 (느긋한 계산법)
 
-Lazy Evaluation (지연 계산법)은 표현식 (Evaluation)의 계산을 바로 하지 않고 (지연, Lazy), 파일 출력, 화면 출력 등 실제로 표현식에 대한 값이 필요할 때 계산하는 방법이다.
+지연 계산법 (Lazy evaluation)은 표현식 (Expression)의 계산을 바로 하지 않고 (지연, Lazy), 파일 출력, 화면 출력 등 실제로 표현식에 대한 값이 필요할 때 계산하는 방법이다. 이와 반대대는 개념으로 위키피디아에서 조급한 계산법이라 번역된 eager evaluatino이 있으며, 이는 우리가 평소에 아는 것처럼 표현식을 즉시 계산하는 방법이다.
 
 Z3, Yice와 같은 SMT solver나 Haskell, Scala와 같은 함수형 언어에서 성능 향상의 목적으로 많이 사용된다.
 
@@ -26,3 +26,4 @@ thunks라는 개념을 이용하여 지연 계산법을 구현할 수 있다.
 
 ## Reference
 [1] David Evans. (2008). CS150: Book. Retrieved from https://www.cs.virginia.edu/~evans/cs150/book/
+[2] Jonathan. (2017). "Lazy evaluation of function arguments in C++." Retrieved from https://foonathan.net/2017/06/lazy-evaluation/
